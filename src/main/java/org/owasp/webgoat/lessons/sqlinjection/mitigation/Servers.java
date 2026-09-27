@@ -43,6 +43,10 @@ public class Servers {
   @GetMapping(produces = MediaType.APPLICATION_JSON_VALUE)
   @ResponseBody
   public List<Server> sort(@RequestParam String column) throws Exception {
+    // Whitelist validation: only known column names may be used in the ORDER BY clause
+    if (!List.of("id", "hostname", "ip", "mac", "status", "description").contains(column)) {
+      throw new IllegalArgumentException("Invalid column name");
+    }
     List<Server> servers = new ArrayList<>();
 
     try (var connection = dataSource.getConnection()) {
