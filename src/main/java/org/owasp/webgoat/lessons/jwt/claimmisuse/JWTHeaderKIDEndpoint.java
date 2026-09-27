@@ -7,6 +7,7 @@ package org.owasp.webgoat.lessons.jwt.claimmisuse;
 import static org.owasp.webgoat.container.assignments.AttackResultBuilder.failed;
 import static org.owasp.webgoat.container.assignments.AttackResultBuilder.success;
 
+import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 
@@ -69,11 +70,13 @@ public class JWTHeaderKIDEndpoint implements AssignmentEndpoint {
                       public byte[] resolveSigningKeyBytes(JwsHeader header, Claims claims) {
                         final String kid = (String) header.get("kid");
                         try (var connection = dataSource.getConnection()) {
-                          ResultSet rs =
-                              connection
-                                  .createStatement()
-                                  .executeQuery(
-                                      "SELECT key FROM jwt_keys WHERE id = '" + kid + "'");
+                          // Use a PreparedStatement to parameterize the kid value,
+                          // preventing SQL injection via the JWT 'kid' header claim.
+                          PreparedStatement ps =
+                              connection.prepareStatement(
+                                  "SELECT key FROM jwt_keys WHERE id = ?");
+                          ps.setString(1, kid);
+                          ResultSet rs = ps.executeQuery();
                           while (rs.next()) {
                             return TextCodec.BASE64.decode(rs.getString(1));
                           }
