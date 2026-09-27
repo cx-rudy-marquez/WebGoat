@@ -9,7 +9,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import com.thoughtworks.xstream.XStream;
 import com.thoughtworks.xstream.io.StreamException;
-import org.junit.jupiter.api.Disabled;
+import com.thoughtworks.xstream.security.ForbiddenClassException;
 import org.junit.jupiter.api.Test;
 
 public class VulnerableComponentsLessonTest {
@@ -37,23 +37,23 @@ public class VulnerableComponentsLessonTest {
     assertThat(xstream.fromXML(contact)).isNotNull();
   }
 
+  /**
+   * XStream 1.4.21 enables security restrictions by default and blocks dangerous class
+   * deserialization (CVE-2013-7285). Attempting to unmarshal a payload that uses dynamic-proxy
+   * with java.beans.EventHandler / java.lang.ProcessBuilder now throws ForbiddenClassException
+   * instead of silently executing arbitrary code.
+   */
   @Test
   public void testIllegalTransformation() throws Exception {
     XStream xstream = new XStream();
     xstream.setClassLoader(Contact.class.getClassLoader());
     xstream.alias("contact", ContactImpl.class);
     xstream.ignoreUnknownElements();
-    try {
-      ((Contact) xstream.fromXML(strangeContact)).getFirstName();
-    } catch (Throwable t) {
-      Throwable c = t;
-      int i = 0;
-      while (c != null && i < 10) {
-        System.out.println("CHAIN[" + i + "] " + c.getClass().getName() + " :: " + c.getMessage());
-        c = c.getCause();
-        i++;
-      }
-    }
+    // In XStream >= 1.4.7 the security framework blocks unsafe types by default.
+    // The exploit payload must be rejected with a ForbiddenClassException.
+    assertThrows(
+        ForbiddenClassException.class,
+        () -> ((Contact) xstream.fromXML(strangeContact)).getFirstName());
   }
 
   @Test
