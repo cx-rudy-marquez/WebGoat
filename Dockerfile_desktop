@@ -42,7 +42,7 @@ WORKDIR /config
 
 # Install editors and gzip support
 RUN apt-get update \
-  && apt-get --yes install --no-install-recommends vim nano gzip \
+  && apt-get --yes install --no-install-recommends vim=2:9.1.* nano gzip \
   && rm -rf /var/lib/apt/lists/*
 
 # Application artifacts
