@@ -7,6 +7,7 @@ package org.owasp.webgoat.container.users;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.function.Function;
+import java.util.regex.Pattern;
 import lombok.AllArgsConstructor;
 import org.flywaydb.core.Flyway;
 import org.owasp.webgoat.container.lessons.Initializable;
@@ -20,6 +21,9 @@ import org.springframework.stereotype.Service;
 @Service
 @AllArgsConstructor
 public class UserService implements UserDetailsService {
+
+  /** Allowlist pattern for usernames used as SQL schema identifiers (DDL). */
+  private static final Pattern SAFE_USERNAME_PATTERN = Pattern.compile("^[a-zA-Z0-9_]+$");
 
   private final UserRepository userRepository;
   private final UserProgressRepository userTrackerRepository;
@@ -42,6 +46,12 @@ public class UserService implements UserDetailsService {
   }
 
   public void addUser(String username, String password) {
+    // Validate the username against an allowlist before it is used as a SQL schema identifier.
+    // Schema names cannot be bound via JDBC parameters in DDL statements, so we enforce a strict
+    // allowlist (alphanumeric and underscore only) to prevent SQL injection in createLessonsForUser.
+    if (username == null || !SAFE_USERNAME_PATTERN.matcher(username).matches()) {
+      throw new IllegalArgumentException("Invalid username: only alphanumeric characters and underscores are allowed");
+    }
     // get user if there exists one by the name
     var userAlreadyExists = userRepository.existsByUsername(username);
     var webGoatUser = userRepository.save(new WebGoatUser(username, password));
