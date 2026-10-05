@@ -75,8 +75,15 @@ public class UserService implements UserDetailsService {
   }
 
   private void createLessonsForUser(WebGoatUser webGoatUser) {
-    jdbcTemplate.execute("CREATE SCHEMA \"" + webGoatUser.getUsername() + "\" authorization dba");
-    flywayLessons.apply(webGoatUser.getUsername()).migrate();
+    // The schema name cannot be bound as a JDBC parameter in DDL, so validate it against the
+    // allowlist right before it is embedded in the statement to prevent SQL injection.
+    var schemaName = webGoatUser.getUsername();
+    if (schemaName == null || !SAFE_USERNAME_PATTERN.matcher(schemaName).matches()) {
+      throw new IllegalArgumentException(
+          "Invalid username: only alphanumeric characters and underscores are allowed");
+    }
+    jdbcTemplate.execute("CREATE SCHEMA \"" + schemaName + "\" authorization dba");
+    flywayLessons.apply(schemaName).migrate();
   }
 
   public List<WebGoatUser> getAllUsers() {
